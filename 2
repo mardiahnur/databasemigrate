@@ -1,0 +1,80 @@
+package main
+
+import (
+
+	"database/sql"
+	"fmt"
+	"log"
+
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/mysql"
+	_ "github.com/golang-migrate/migrate/v4/source/file""
+)
+
+func main() {
+	//db connection
+	db, err := sqlx.Connect("postgres", "user=<database_user> password=<database_password> dbname=<database_name> sslmode=disable")
+	if err != nil {
+		fmt.Println("failed to connect to database:", err)
+		return
+	}
+
+	// run db migrations
+	err = runMigrations(db)
+	if err != nil {
+		fmt.Println("failed to run migrations:", err)
+		return
+	}
+
+	fmt.Println("Migrations completed successfully")
+}
+
+func runMigrations(db *sqlx.DB) error {
+	// Initialize the Postgres database driver
+	driver, err := migrate.GetDatabaseDriver("postgres")
+	if err != nil {
+		return err
+	}
+
+	// Konfigurasi migrasi
+	migrations := &migrate.MemoryMigrationSource{
+		Migrations: []*migrate.Migration{
+			{
+				Id:   "1",
+				Up:   []string{`
+					CREATE TABLE User (
+						user_id SERIAL PRIMARY KEY,
+						username VARCHAR(50),
+						email VARCHAR(100),
+						password VARCHAR(100)
+					);`,
+				},
+				Down: []string{`
+					DROP TABLE User;
+				`},
+			},
+			{
+				Id:   "2",
+				Up:   []string{`
+					CREATE TABLE Address (
+						address_id SERIAL PRIMARY KEY,
+						user_id INT,
+						street VARCHAR(100),
+						city VARCHAR(50),
+						state VARCHAR(50),
+						country VARCHAR(50),
+						FOREIGN KEY (user_id) REFERENCES User(user_id)
+					);`,
+				},
+				Down: []string{`
+					DROP TABLE Address;
+				`},
+			},
+			
+		},
+	}
+
+	
+	_, err = migrate.Exec(db.DB, "postgres", migrations, migrate.Up)
+	return err
+}
